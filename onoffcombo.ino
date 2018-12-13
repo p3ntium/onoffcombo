@@ -9,10 +9,10 @@ IPAddress ip(0, 0, 0, 0); // La IP de este ESP8266 (LO UNICO A CAMBIAR GENERALME
 IPAddress gateway(10, 0, 0, 1); // La IP del domohub
 IPAddress subnet(255, 255, 255, 0);
 
-String version = "1.5.1";
+String version = "1.5.3";
 
-const char* ssid = "escribe le SSID";
-const char* password = "escribe la pass WPA";
+const char* ssid = "pon aqui el ssid";
+const char* password = "las pass";
 
 // TODO: sacar esto de BBDD
 int myPins[] = {0, 1, 2, 3, 12}; // Declaramos aquí los pines que vamos a usar en la configuración cliente (sender)
@@ -78,7 +78,8 @@ void encender() {
   String id = server.arg("pin");
   uint8_t pin = atoi (id.c_str ());
   digitalWrite(pin, HIGH);
-  myValues[pin] = 1;
+  int posicion = indice(pin);
+  myValues[posicion] = 1;
   DEBUG_PRINT("Pin ");
   DEBUG_PRINT(pin);
   DEBUG_PRINT(" puesto en HIGH\n");
@@ -89,7 +90,8 @@ void apagar() {
   String id = server.arg("pin");
   uint8_t pin = atoi (id.c_str ());
   digitalWrite(pin, LOW);
-  myValues[pin] = 0;
+  int posicion = indice(pin);
+  myValues[posicion] = 0;
   DEBUG_PRINT("Pin ");
   DEBUG_PRINT(pin);
   DEBUG_PRINT(" puesto en LOW\n");
@@ -398,7 +400,7 @@ void loop(void){
         }
       }
       // Fin de la actualización al hub
-      delay(3000);
+      delay(2000);
       if ((digitalRead(0) == LOW) || (digitalRead(14) == LOW)) {
         DEBUG_PRINT("Reiniciamos\n");
         ESP.reset();
