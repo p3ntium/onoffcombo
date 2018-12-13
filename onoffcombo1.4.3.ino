@@ -2,7 +2,7 @@
 #include <ESP8266WebServer.h>
 #include <WiFiClient.h>
 
-IPAddress ip(10, 0, 0, 15); // La IP de este ESP8266 (LO UNICO A CAMBIAR GENERALMENTE)
+IPAddress ip(0, 0, 0, 0); // La IP de este ESP8266 (LO UNICO A CAMBIAR GENERALMENTE)
 IPAddress gateway(10, 0, 0, 1); // La IP del domohub
 IPAddress subnet(255, 255, 255, 0);
 
