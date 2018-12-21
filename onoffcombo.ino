@@ -9,15 +9,16 @@ IPAddress ip(0, 0, 0, 0); // La IP de este ESP8266 (LO UNICO A CAMBIAR GENERALME
 IPAddress gateway(10, 0, 0, 1); // La IP del domohub
 IPAddress subnet(255, 255, 255, 0);
 
-String version = "1.5.3";
+String version = "1.5.8";
 
-const char* ssid = "pon aqui el ssid";
-const char* password = "las pass";
+const char* ssid = "escribe el ssid";
+const char* password = "escribe la pass";
 
 // TODO: sacar esto de BBDD
 int myPins[] = {0, 1, 2, 3, 12}; // Declaramos aquí los pines que vamos a usar en la configuración cliente (sender)
 int myValues[] = {0, 0, 0, 0, 0}; // Aquí los estados (por defecto todos LOW)
 int myPinsSize = 5; // La cantidad de pines para ahorrar CPU
+int led;
 
 String tipo;
 String conf0;
@@ -25,7 +26,7 @@ String conf1;
 String conf2;
 String conf3;
 
-#define DEBUG // Comentar si no queremos imprimir nada (y queremos usar el RX y TX como GPIO)
+// #define DEBUG // Comentar si no queremos imprimir nada (y queremos usar el RX y TX como GPIO)
 #ifdef DEBUG
   #define DEBUG_PRINT(x)  Serial.print (x)
 #else
@@ -78,6 +79,7 @@ void encender() {
   String id = server.arg("pin");
   uint8_t pin = atoi (id.c_str ());
   digitalWrite(pin, HIGH);
+  digitalWrite(led, LOW);
   int posicion = indice(pin);
   myValues[posicion] = 1;
   DEBUG_PRINT("Pin ");
@@ -90,6 +92,7 @@ void apagar() {
   String id = server.arg("pin");
   uint8_t pin = atoi (id.c_str ());
   digitalWrite(pin, LOW);
+  digitalWrite(led, HIGH);
   int posicion = indice(pin);
   myValues[posicion] = 0;
   DEBUG_PRINT("Pin ");
@@ -109,10 +112,12 @@ void turn() {
   if (estado == 1) {
     nuevoEstado = 0;
     digitalWrite(pin, LOW);
+    digitalWrite(led, HIGH);
     myValues[posicion] = nuevoEstado;
   } else {
     nuevoEstado = 1;
     digitalWrite(pin, HIGH);
+    digitalWrite(led, LOW);
     myValues[posicion] = nuevoEstado;
   }
   String mensaje;
@@ -254,12 +259,16 @@ void autoconf() {
       pinMode(2, OUTPUT);
     #endif
   } else if (tipo == "sonoffbasic") {
+      led = 13;
       pinMode(14, FUNCTION_3); // El GPIO14
+      pinMode(led, FUNCTION_3); // El LED
       pinMode(12, FUNCTION_3); // El relé
       pinMode(0, FUNCTION_3);  // El pulsador
       pinMode(14, INPUT_PULLUP);
+      pinMode(led, OUTPUT);
       pinMode(12, OUTPUT);
       pinMode(0, INPUT_PULLUP);
+      digitalWrite(led, HIGH); // El led apagado por defecto al arrancar
   }
 }
 
@@ -374,10 +383,12 @@ void loop(void){
       if (estado == 1) {
         nuevoEstado = 0;
         digitalWrite(pin, LOW);
+        digitalWrite(led, HIGH);
         myValues[posicion] = nuevoEstado;
       } else {
         nuevoEstado = 1;
         digitalWrite(pin, HIGH);
+        digitalWrite(led, LOW);
         myValues[posicion] = nuevoEstado;
       }
       // Aqui va la actualización al hub para dar a conocer el nuevo estado
