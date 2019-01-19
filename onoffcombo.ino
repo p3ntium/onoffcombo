@@ -4,15 +4,9 @@
 #include <WiFiClient.h>
 #include <WiFiUdp.h>
 #include <ArduinoOTA.h>
+#include "configuracion.h"
 
-IPAddress ip(0, 0, 0, 0); // La IP de este ESP8266 (LO UNICO A CAMBIAR GENERALMENTE)
-IPAddress gateway(10, 0, 0, 1); // La IP del domohub
-IPAddress subnet(255, 255, 255, 0);
-
-String version = "1.5.8";
-
-const char* ssid = "escribe el ssid";
-const char* password = "escribe la pass";
+String version = "1.6.0";
 
 // TODO: sacar esto de BBDD
 int myPins[] = {0, 1, 2, 3, 12}; // Declaramos aquí los pines que vamos a usar en la configuración cliente (sender)
@@ -146,6 +140,7 @@ void getVersion() {
 
 void doRestart() { // RECORDATORIO: el primer reset despues de un flasheo siempre falla, mejor hacer uno a mano postflasheo
   server.send(200, "text/plain", "reiniciando");
+  delay(1000);
   ESP.reset();
 }
 
