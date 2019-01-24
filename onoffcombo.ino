@@ -6,12 +6,12 @@
 #include <ArduinoOTA.h>
 #include "configuracion.h"
 
-String version = "1.6.0";
+String version = "1.6.3";
 
 // TODO: sacar esto de BBDD
-int myPins[] = {0, 1, 2, 3, 12}; // Declaramos aquí los pines que vamos a usar en la configuración cliente (sender)
-int myValues[] = {0, 0, 0, 0, 0}; // Aquí los estados (por defecto todos LOW)
-int myPinsSize = 5; // La cantidad de pines para ahorrar CPU
+int myPins[] = {0, 1, 2, 3, 12};
+int myValues[] = {0, 0, 0, 0, 0};
+int myPinsSize = 5;
 int led;
 
 String tipo;
@@ -29,6 +29,13 @@ String conf3;
 #endif
 
 ESP8266WebServer server(80);
+
+void test() {
+  char buffer[25];
+  conf0.toCharArray(buffer, 25);
+  char* host = strtok(buffer, " ");
+  server.send(200, "text/plain", String(strlen(host)));
+}
 
 void parseBytes(const char* str, char sep, byte* bytes, int maxBytes, int base) {
     for (int i = 0; i < maxBytes; i++) {
@@ -73,7 +80,7 @@ void encender() {
   String id = server.arg("pin");
   uint8_t pin = atoi (id.c_str ());
   digitalWrite(pin, HIGH);
-  digitalWrite(led, LOW);
+  if (led > 0 ) digitalWrite(led, LOW);
   int posicion = indice(pin);
   myValues[posicion] = 1;
   DEBUG_PRINT("Pin ");
@@ -86,7 +93,7 @@ void apagar() {
   String id = server.arg("pin");
   uint8_t pin = atoi (id.c_str ());
   digitalWrite(pin, LOW);
-  digitalWrite(led, HIGH);
+  if (led > 0 ) digitalWrite(led, HIGH);
   int posicion = indice(pin);
   myValues[posicion] = 0;
   DEBUG_PRINT("Pin ");
@@ -106,18 +113,15 @@ void turn() {
   if (estado == 1) {
     nuevoEstado = 0;
     digitalWrite(pin, LOW);
-    digitalWrite(led, HIGH);
+    if (led > 0 ) digitalWrite(led, HIGH);
     myValues[posicion] = nuevoEstado;
   } else {
     nuevoEstado = 1;
     digitalWrite(pin, HIGH);
-    digitalWrite(led, LOW);
+    if (led > 0 ) digitalWrite(led, LOW);
     myValues[posicion] = nuevoEstado;
   }
   String mensaje;
-  mensaje += "Pin ";
-  mensaje += pin;
-  mensaje += " puesto a ";
   mensaje += nuevoEstado;
   mensaje += "\n";
   server.send(200, "text/plain", mensaje);
@@ -160,6 +164,7 @@ void peticionHTTP(char* host, String accion, char* pin) {
                "Host: " + host + "\r\n" + 
                "Connection: close\r\n\r\n");
   unsigned long timeout = millis();
+  String respuesta = client.readStringUntil('\n');
   while (client.available() == 0) {
     if (millis() - timeout > 5000) {
       DEBUG_PRINT(">>> Se ha alcanzado el timeout con el webserver!\n");
@@ -172,7 +177,7 @@ void peticionHTTP(char* host, String accion, char* pin) {
     DEBUG_PRINT("Fallo conexion con Domohub\n");
     return;
   }
-  String urlUpdate = "/cgi-bin/updateStatus.cgi?alias=" + String(host) + "&status=" + accion + "&pin=" + pin;
+  String urlUpdate = "/cgi-bin/updateStatus.cgi?alias=" + String(host) + "&status=" + respuesta + "&pin=" + pin + "&source=" + WiFi.localIP().toString();
   client.print(String("GET ") + urlUpdate + " HTTP/1.1\r\n" +
                "Host: " + gateway.toString() + "\r\n" + 
                "Connection: close\r\n\r\n");
@@ -233,6 +238,9 @@ void autoconf() {
   DEBUG_PRINT("Este ESP8266 será configurado como: " + tipo + "\n");
   
   if (tipo == "webclient") {
+    int myPins[] = {0, 1, 2, 3};
+    int myValues[] = {0, 0, 0, 0};
+    int myPinsSize = 4;
     #ifndef DEBUG      // Ponemos el TX y RX en modo GPIO si NO estamos en modo DEBUG
       pinMode(1, FUNCTION_3);
       pinMode(3, FUNCTION_3);
@@ -243,6 +251,9 @@ void autoconf() {
       pinMode(2, INPUT_PULLUP); // En INPUT solo el pin 2 que es el unico que tenemos libre durante la programación
     #endif
   } else if (tipo == "webserver") {
+    int myPins[] = {0, 1, 2, 3};
+    int myValues[] = {0, 0, 0, 0};
+    int myPinsSize = 4;
     #ifndef DEBUG     // Ponemos el TX y RX en modo GPIO si no estamos en modo DEBUG
       pinMode(1, FUNCTION_3);
       pinMode(3, FUNCTION_3);
@@ -254,6 +265,9 @@ void autoconf() {
       pinMode(2, OUTPUT);
     #endif
   } else if (tipo == "sonoffbasic") {
+      int myPins[] = {0, 1, 2, 3, 12};
+      int myValues[] = {0, 0, 0, 0, 0};
+      int myPinsSize = 5;
       led = 13;
       pinMode(14, FUNCTION_3); // El GPIO14
       pinMode(led, FUNCTION_3); // El LED
@@ -295,6 +309,7 @@ void setup(void){
   server.on("/status", getStatus);
   server.on("/restart", doRestart);
   server.on("/version", getVersion);
+  server.on("/test", test);
   server.onNotFound(handleNotFound);
   server.begin();
   DEBUG_PRINT("Servidor HTTP iniciado");
@@ -313,13 +328,15 @@ void loop(void){
       char* host = strtok(buffer, " ");
       String accion = strtok(NULL, " ");
       char* pin = strtok(NULL, " ");
-      peticionHTTP(host, accion, pin);
-      DEBUG_PRINT("Boton 0 pulsado\n");
-      DEBUG_PRINT("host: " + String(host) + "\n");
-      DEBUG_PRINT("accion: " + accion + "\n");
-      DEBUG_PRINT("pin: " + String(pin) + "\n");
-      digitalWrite(0, HIGH);
-      delay(1000);
+      if (strlen(host) > 4) {
+        peticionHTTP(host, accion, pin);
+        DEBUG_PRINT("Boton 0 pulsado\n");
+        DEBUG_PRINT("host: " + String(host) + "\n");
+        DEBUG_PRINT("accion: " + accion + "\n");
+        DEBUG_PRINT("pin: " + String(pin) + "\n");
+        // digitalWrite(0, HIGH);
+        delay(1000);
+      }
     }
     if (digitalRead(2) == LOW) {
       char buffer[25];
@@ -327,13 +344,15 @@ void loop(void){
       char* host = strtok(buffer, " ");
       String accion = strtok(NULL, " ");
       char* pin = strtok(NULL, " ");
-      peticionHTTP(host, accion, pin);
-      DEBUG_PRINT("Boton 2 pulsado\n");
-      DEBUG_PRINT("host: " + String(host) + "\n");
-      DEBUG_PRINT("accion: " + accion + "\n");
-      DEBUG_PRINT("pin: " + String(pin) + "\n");
-      digitalWrite(2, HIGH);
-      delay(1000);
+      if (strlen(host) > 4) {
+        peticionHTTP(host, accion, pin);
+        DEBUG_PRINT("Boton 2 pulsado\n");
+        DEBUG_PRINT("host: " + String(host) + "\n");
+        DEBUG_PRINT("accion: " + accion + "\n");
+        DEBUG_PRINT("pin: " + String(pin) + "\n");
+        // digitalWrite(2, HIGH);
+        delay(1000);
+      }
     }
     #ifndef DEBUG // Solo escuchamos por el pin 1 y el 3 cuando no estamos en modo debug
       if (digitalRead(1) == LOW) {
@@ -342,13 +361,15 @@ void loop(void){
         char* host = strtok(buffer, " ");
         String accion = strtok(NULL, " ");
         char* pin = strtok(NULL, " ");
-        peticionHTTP(host, accion, pin);
-        DEBUG_PRINT("Boton 1 pulsado\n");
-        DEBUG_PRINT("host: " + String(host) + "\n");
-        DEBUG_PRINT("accion: " + accion + "\n");
-        DEBUG_PRINT("pin: " + String(pin) + "\n");
-        digitalWrite(1, HIGH);
-        delay(1000);
+        if (strlen(host) > 4) {
+          peticionHTTP(host, accion, pin);
+          DEBUG_PRINT("Boton 1 pulsado\n");
+          DEBUG_PRINT("host: " + String(host) + "\n");
+          DEBUG_PRINT("accion: " + accion + "\n");
+          DEBUG_PRINT("pin: " + String(pin) + "\n");
+          // digitalWrite(1, HIGH);
+          delay(1000);
+        }
       }
       if (digitalRead(3) == LOW) {
         char buffer[25];
@@ -356,13 +377,15 @@ void loop(void){
         char* host = strtok(buffer, " ");
         String accion = strtok(NULL, " ");
         char* pin = strtok(NULL, " ");
-        peticionHTTP(host, accion, pin);
-        DEBUG_PRINT("Boton 3 pulsado\n");
-        DEBUG_PRINT("host: " + String(host) + "\n");
-        DEBUG_PRINT("accion: " + accion + "\n");
-        DEBUG_PRINT("pin: " + String(pin) + "\n");
-        digitalWrite(3, HIGH);
-        delay(1000);
+        if (strlen(host) > 4) {
+          peticionHTTP(host, accion, pin);
+          DEBUG_PRINT("Boton 3 pulsado\n");
+          DEBUG_PRINT("host: " + String(host) + "\n");
+          DEBUG_PRINT("accion: " + accion + "\n");
+          DEBUG_PRINT("pin: " + String(pin) + "\n");
+          // digitalWrite(3, HIGH);
+          delay(1000);
+        }
       }
     #endif
     server.handleClient();
