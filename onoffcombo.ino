@@ -1,12 +1,11 @@
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
-// #include <ESP8266mDNS.h>
 #include <WiFiClient.h>
 #include <WiFiUdp.h>
 #include <ArduinoOTA.h>
 #include "configuracion.h"
 
-String version = "1.6.3";
+String version = "1.6.6";
 
 // TODO: sacar esto de BBDD
 int myPins[] = {0, 1, 2, 3, 12};
@@ -31,10 +30,7 @@ String conf3;
 ESP8266WebServer server(80);
 
 void test() {
-  char buffer[25];
-  conf0.toCharArray(buffer, 25);
-  char* host = strtok(buffer, " ");
-  server.send(200, "text/plain", String(strlen(host)));
+  server.send(200, "text/plain", String(conf0.length()));
 }
 
 void parseBytes(const char* str, char sep, byte* bytes, int maxBytes, int base) {
@@ -86,6 +82,7 @@ void encender() {
   DEBUG_PRINT("Pin ");
   DEBUG_PRINT(pin);
   DEBUG_PRINT(" puesto en HIGH\n");
+  updateHUB(1, pin); // INFORMAMOS AL HUB
 }
 
 void apagar() {
@@ -99,6 +96,7 @@ void apagar() {
   DEBUG_PRINT("Pin ");
   DEBUG_PRINT(pin);
   DEBUG_PRINT(" puesto en LOW\n");
+  updateHUB(0, pin); // INFORMAMOS AL HUB
 }
 
 void turn() {
@@ -125,6 +123,7 @@ void turn() {
   mensaje += nuevoEstado;
   mensaje += "\n";
   server.send(200, "text/plain", mensaje);
+  updateHUB(nuevoEstado, pin); // INFORMAMOS AL HUB
 }
 
 void getStatus() {
@@ -164,7 +163,6 @@ void peticionHTTP(char* host, String accion, char* pin) {
                "Host: " + host + "\r\n" + 
                "Connection: close\r\n\r\n");
   unsigned long timeout = millis();
-  String respuesta = client.readStringUntil('\n');
   while (client.available() == 0) {
     if (millis() - timeout > 5000) {
       DEBUG_PRINT(">>> Se ha alcanzado el timeout con el webserver!\n");
@@ -172,12 +170,16 @@ void peticionHTTP(char* host, String accion, char* pin) {
       return;
     }
   }
-  // Informamos al domohub de la accion que acabamos de hacer para que actualice el estado tambien
+}
+
+void updateHUB(int accion, int pin) {
+  WiFiClient client;
+  const int httpPort = 80;
   if (!client.connect(gateway, httpPort)) {
     DEBUG_PRINT("Fallo conexion con Domohub\n");
     return;
   }
-  String urlUpdate = "/cgi-bin/updateStatus.cgi?alias=" + String(host) + "&status=" + respuesta + "&pin=" + pin + "&source=" + WiFi.localIP().toString();
+  String urlUpdate = "/cgi-bin/updateStatus.cgi?alias=" + WiFi.localIP().toString() + "&pin=" + pin + "&source=" + WiFi.localIP().toString() + "&status=" + accion;
   client.print(String("GET ") + urlUpdate + " HTTP/1.1\r\n" +
                "Host: " + gateway.toString() + "\r\n" + 
                "Connection: close\r\n\r\n");
@@ -189,7 +191,6 @@ void peticionHTTP(char* host, String accion, char* pin) {
       return;
     }
   }
-  // Termina la actualización del domohub
 }
 
 void autoconf() {
@@ -323,67 +324,63 @@ void loop(void){
   ArduinoOTA.handle();
   if (tipo == "webclient") {
     if (digitalRead(0) == LOW) {
-      char buffer[25];
-      conf0.toCharArray(buffer, 25);
-      char* host = strtok(buffer, " ");
-      String accion = strtok(NULL, " ");
-      char* pin = strtok(NULL, " ");
-      if (strlen(host) > 4) {
+      if (conf0.length() > 2) {
+        char buffer[25];
+        conf0.toCharArray(buffer, 25);
+        char* host = strtok(buffer, " ");
+        String accion = strtok(NULL, " ");
+        char* pin = strtok(NULL, " ");
         peticionHTTP(host, accion, pin);
         DEBUG_PRINT("Boton 0 pulsado\n");
         DEBUG_PRINT("host: " + String(host) + "\n");
         DEBUG_PRINT("accion: " + accion + "\n");
         DEBUG_PRINT("pin: " + String(pin) + "\n");
-        // digitalWrite(0, HIGH);
         delay(1000);
       }
     }
     if (digitalRead(2) == LOW) {
-      char buffer[25];
-      conf2.toCharArray(buffer, 25);
-      char* host = strtok(buffer, " ");
-      String accion = strtok(NULL, " ");
-      char* pin = strtok(NULL, " ");
-      if (strlen(host) > 4) {
+      if (conf2.length() > 2) {
+        char buffer[25];
+        conf2.toCharArray(buffer, 25);
+        char* host = strtok(buffer, " ");
+        String accion = strtok(NULL, " ");
+        char* pin = strtok(NULL, " ");
         peticionHTTP(host, accion, pin);
         DEBUG_PRINT("Boton 2 pulsado\n");
         DEBUG_PRINT("host: " + String(host) + "\n");
         DEBUG_PRINT("accion: " + accion + "\n");
         DEBUG_PRINT("pin: " + String(pin) + "\n");
-        // digitalWrite(2, HIGH);
         delay(1000);
       }
     }
     #ifndef DEBUG // Solo escuchamos por el pin 1 y el 3 cuando no estamos en modo debug
       if (digitalRead(1) == LOW) {
-        char buffer[25];
-        conf1.toCharArray(buffer, 25);
-        char* host = strtok(buffer, " ");
-        String accion = strtok(NULL, " ");
-        char* pin = strtok(NULL, " ");
-        if (strlen(host) > 4) {
+        if (conf1.length() > 2) {
+          char buffer[25];
+          conf1.toCharArray(buffer, 25);
+          char* host = strtok(buffer, " ");
+          String accion = strtok(NULL, " ");
+          char* pin = strtok(NULL, " ");
           peticionHTTP(host, accion, pin);
           DEBUG_PRINT("Boton 1 pulsado\n");
           DEBUG_PRINT("host: " + String(host) + "\n");
           DEBUG_PRINT("accion: " + accion + "\n");
           DEBUG_PRINT("pin: " + String(pin) + "\n");
-          // digitalWrite(1, HIGH);
           delay(1000);
         }
       }
       if (digitalRead(3) == LOW) {
-        char buffer[25];
-        conf3.toCharArray(buffer, 25);
-        char* host = strtok(buffer, " ");
-        String accion = strtok(NULL, " ");
-        char* pin = strtok(NULL, " ");
-        if (strlen(host) > 4) {
+        if (conf3.length() > 2) {
+          char buffer[25];
+          conf3.toCharArray(buffer, 25);
+          char* host = strtok(buffer, " ");
+          String accion = strtok(NULL, " ");
+          char* pin = strtok(NULL, " ");
           peticionHTTP(host, accion, pin);
           DEBUG_PRINT("Boton 3 pulsado\n");
           DEBUG_PRINT("host: " + String(host) + "\n");
           DEBUG_PRINT("accion: " + accion + "\n");
           DEBUG_PRINT("pin: " + String(pin) + "\n");
-          // digitalWrite(3, HIGH);
           delay(1000);
         }
       }
