@@ -5,7 +5,7 @@
 #include <ArduinoOTA.h>
 #include "configuracion.h"
 
-String version = "1.6.6";
+String version = "1.6.8";
 
 // TODO: sacar esto de BBDD
 int myPins[] = {0, 1, 2, 3, 12};
@@ -173,13 +173,20 @@ void peticionHTTP(char* host, String accion, char* pin) {
 }
 
 void updateHUB(int accion, int pin) {
+  String source;
+  String cliente = server.client().remoteIP().toString();
+  if (cliente) {
+    source = cliente;
+  } else {
+    source = WiFi.localIP().toString();
+  }
   WiFiClient client;
   const int httpPort = 80;
   if (!client.connect(gateway, httpPort)) {
     DEBUG_PRINT("Fallo conexion con Domohub\n");
     return;
   }
-  String urlUpdate = "/cgi-bin/updateStatus.cgi?alias=" + WiFi.localIP().toString() + "&pin=" + pin + "&source=" + WiFi.localIP().toString() + "&status=" + accion;
+  String urlUpdate = "/cgi-bin/updateStatus.cgi?alias=" + WiFi.localIP().toString() + "&pin=" + pin + "&source=" + source + "&status=" + accion;
   client.print(String("GET ") + urlUpdate + " HTTP/1.1\r\n" +
                "Host: " + gateway.toString() + "\r\n" + 
                "Connection: close\r\n\r\n");
@@ -303,16 +310,20 @@ void setup(void){
   DEBUG_PRINT(WiFi.localIP());
   DEBUG_PRINT("\n");
   autoconf(); // Lanzamos la petición de autoconfiguracion una vez que tenemos IP
+
   server.on("/", handleRoot);
-  server.on("/on", encender);
-  server.on("/off", apagar);
-  server.on("/turn", turn);
+  if (tipo != "webclient") {
+    server.on("/on", encender);
+    server.on("/off", apagar);
+    server.on("/turn", turn);
+  }
   server.on("/status", getStatus);
   server.on("/restart", doRestart);
   server.on("/version", getVersion);
   server.on("/test", test);
   server.onNotFound(handleNotFound);
   server.begin();
+
   DEBUG_PRINT("Servidor HTTP iniciado");
   DEBUG_PRINT("\n");
   ArduinoOTA.begin();
