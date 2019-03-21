@@ -5,7 +5,7 @@
 #include <ArduinoOTA.h>
 #include "configuracion.h"
 
-String version = "1.6.8";
+String version = "1.7.0";
 
 // TODO: sacar esto de BBDD
 int myPins[] = {0, 1, 2, 3, 12};
@@ -286,6 +286,22 @@ void autoconf() {
       pinMode(12, OUTPUT);
       pinMode(0, INPUT_PULLUP);
       digitalWrite(led, HIGH); // El led apagado por defecto al arrancar
+  } else if (tipo == "sonofftouch") {
+      int myPins[] = {0, 1, 2, 3, 4, 5, 9, 12};
+      int myValues[] = {0, 0, 0, 0, 0, 0, 0, 0};
+      int myPinsSize = 8;
+      pinMode(12, FUNCTION_3); // El relé 1
+      pinMode(5, FUNCTION_3); // El relé 2
+      pinMode(4, FUNCTION_3); // El relé 3
+      pinMode(0, FUNCTION_3);  // El pulsador 1
+      pinMode(9, FUNCTION_3);  // El pulsador 2
+      pinMode(10, FUNCTION_3);  // El pulsador 3
+      pinMode(0, INPUT_PULLUP);
+      pinMode(9, INPUT_PULLUP);
+      pinMode(10, INPUT_PULLUP);
+      pinMode(12, OUTPUT);
+      pinMode(5, OUTPUT);
+      pinMode(4, OUTPUT);
   }
 }
 
@@ -417,26 +433,7 @@ void loop(void){
         digitalWrite(led, LOW);
         myValues[posicion] = nuevoEstado;
       }
-      // Aqui va la actualización al hub para dar a conocer el nuevo estado
-      WiFiClient client;
-      const int httpPort = 80;
-      if (!client.connect(gateway, httpPort)) {
-        DEBUG_PRINT("Fallo conexion con Domohub\n");
-        return;
-      }
-      String urlUpdate = "/cgi-bin/updateStatus.cgi?alias=" + WiFi.localIP().toString() + "&status=" + nuevoEstado + "&pin=" + pin;
-      client.print(String("GET ") + urlUpdate + " HTTP/1.1\r\n" +
-               "Host: " + gateway.toString() + "\r\n" + 
-               "Connection: close\r\n\r\n");
-      unsigned long timeout2 = millis();
-      while (client.available() == 0) {
-        if (millis() - timeout2 > 5000) {
-          DEBUG_PRINT(">>> Se ha alcanzado el timeout con el webserver!\n");
-          client.stop();
-          return;
-        }
-      }
-      // Fin de la actualización al hub
+      updateHUB(nuevoEstado, pin); // INFORMAMOS AL HUB
       delay(2000);
       if ((digitalRead(0) == LOW) || (digitalRead(14) == LOW)) {
         DEBUG_PRINT("Reiniciamos\n");
@@ -444,6 +441,35 @@ void loop(void){
       }
     }
     server.handleClient();
+  } else if (tipo == "sonofftouch") {
+    int pin;
+    if (digitalRead(0) == LOW) {
+      pin = 12; //  = Botón 1 = GPIO0
+    } else if (digitalRead(9) == LOW) {
+      pin = 5; //  = Botón 2 = GPIO9
+    } else if (digitalRead(10) == LOW) {
+      pin = 4; //  = Botón 3 = GPI10
+    } else if (digitalRead(14) == LOW) {
+      DEBUG_PRINT("Reiniciamos\n");
+      ESP.reset();
+    } else {
+      server.handleClient();
+      return;
+    }
+    int posicion = indice(pin);
+    int estado = myValues[posicion];
+    int nuevoEstado;
+    if (estado == 1) {
+      nuevoEstado = 0;
+      digitalWrite(pin, LOW);
+      myValues[posicion] = nuevoEstado;
+    } else {
+      nuevoEstado = 1;
+      digitalWrite(pin, HIGH);
+      myValues[posicion] = nuevoEstado;
+    }
+    updateHUB(nuevoEstado, pin); // INFORMAMOS AL HUB
+    delay(1000);
   } else {
     DEBUG_PRINT(".");
     delay(1000);
