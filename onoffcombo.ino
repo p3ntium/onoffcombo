@@ -5,7 +5,7 @@
 #include <ArduinoOTA.h>
 #include "configuracion.h"
 
-String version = "1.7.0";
+String version = "1.7.1";
 
 // TODO: sacar esto de BBDD
 int myPins[] = {0, 1, 2, 3, 12};
@@ -287,6 +287,7 @@ void autoconf() {
       pinMode(0, INPUT_PULLUP);
       digitalWrite(led, HIGH); // El led apagado por defecto al arrancar
   } else if (tipo == "sonofftouch") {
+      led = 13;
       int myPins[] = {0, 1, 2, 3, 4, 5, 9, 12};
       int myValues[] = {0, 0, 0, 0, 0, 0, 0, 0};
       int myPinsSize = 8;
@@ -296,12 +297,15 @@ void autoconf() {
       pinMode(0, FUNCTION_3);  // El pulsador 1
       pinMode(9, FUNCTION_3);  // El pulsador 2
       pinMode(10, FUNCTION_3);  // El pulsador 3
+      pinMode(led, FUNCTION_3); // El LED
       pinMode(0, INPUT_PULLUP);
       pinMode(9, INPUT_PULLUP);
       pinMode(10, INPUT_PULLUP);
       pinMode(12, OUTPUT);
       pinMode(5, OUTPUT);
       pinMode(4, OUTPUT);
+      pinMode(led, OUTPUT);
+      digitalWrite(led, LOW); // En el toch lo encedemos al tener WIFI
   }
 }
 
@@ -448,7 +452,7 @@ void loop(void){
     } else if (digitalRead(9) == LOW) {
       pin = 5; //  = Botón 2 = GPIO9
     } else if (digitalRead(10) == LOW) {
-      pin = 4; //  = Botón 3 = GPI10
+      pin = 4; //  = Botón 3 = GPIO10
     } else if (digitalRead(14) == LOW) {
       DEBUG_PRINT("Reiniciamos\n");
       ESP.reset();
