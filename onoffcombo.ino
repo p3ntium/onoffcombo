@@ -5,7 +5,7 @@
 #include <ArduinoOTA.h>
 #include "configuracion.h"
 
-String version = "1.7.1";
+String version = "1.7.2rc1";
 
 // TODO: sacar esto de BBDD
 int myPins[] = {0, 1, 2, 3, 12};
@@ -175,7 +175,7 @@ void peticionHTTP(char* host, String accion, char* pin) {
 void updateHUB(int accion, int pin) {
   String source;
   String cliente = server.client().remoteIP().toString();
-  if (cliente) {
+  if (cliente && cliente != "0.0.0.0") {
     source = cliente;
   } else {
     source = WiFi.localIP().toString();
@@ -305,7 +305,7 @@ void autoconf() {
       pinMode(5, OUTPUT);
       pinMode(4, OUTPUT);
       pinMode(led, OUTPUT);
-      digitalWrite(led, LOW); // En el toch lo encedemos al tener WIFI
+      digitalWrite(led, LOW); // En el touch lo encendemos al tener WIFI
   }
 }
 
