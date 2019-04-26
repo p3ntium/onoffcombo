@@ -5,7 +5,7 @@
 #include <ArduinoOTA.h>
 #include "configuracion.h"
 
-String version = "1.7.2";
+String version = "1.7.3";
 
 // TODO: sacar esto de BBDD
 int myPins[] = {0, 1, 2, 3, 12};
@@ -153,7 +153,12 @@ void peticionHTTP(char* host, String accion, char* pin) {
   const char* ipStr = host;
   byte ip[4];
   parseBytes(ipStr, '.', ip, 4, 10);
-  String url = "/" + accion + "?pin=" + pin;
+  String url;
+  if (accion == "toggle") { // Es un shelly toggle
+    url = "/relay/" + String(pin) + "?turn=" + accion;
+  } else {
+    url = "/" + accion + "?pin=" + pin;
+  }
   DEBUG_PRINT("URL: http://" + String(host) + url + "\n");
   if (!client.connect(ip, httpPort)) {
     DEBUG_PRINT("Fallo conexion con webserver\n");
